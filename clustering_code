@@ -1,0 +1,99 @@
+wt.euc.dist.sq=function(x1,x2,w){
+  p=(x1-x2)^2
+  p=w*p
+  return(sum(p))
+}
+
+vec.wt.euc.dist.sq=function(x1,x2,w){
+  p=(x1-x2)^2
+  p=w*p
+  return(p)
+}
+
+H=function(w,c=1){
+  sum(w*atan(1/w^c))-pi/4
+}
+
+update_weight=function(D,c=1,lambda){
+  f=function(x){
+    w=exp(x)
+    w=w/sum(w)
+    s=sum(D*w)-lambda*H(w,c)
+    return(s)
+  }
+  para=-D/lambda
+  o=optim(para,f)
+  x=o$par
+  w=exp(x)
+  w=w/sum(w)
+  return(w)
+}
+
+HWtkmeans=function(X,M,lambda,tmax){
+  if(is.vector(M)==TRUE){
+    M=as.matrix(M)
+    M=t(M)
+  }
+  n=dim(X)[1]
+  d=dim(X)[2]
+  c=dim(M)[1]
+  weight=matrix(1/d,nrow=c,ncol=d)
+  label=numeric(n)
+  dist=numeric(c)
+  t=0
+  D=matrix(0,nrow=c,ncol=d)
+  #update membership
+  repeat{
+    t=t+1
+    
+    for(i in 1 : n){
+      for(j in 1 : c){
+        dist[j]=wt.euc.dist.sq(X[i,],M[j,],weight)
+      }
+      label[i]=which.min(dist)
+    }
+    
+    #update centres
+    for(i in 1:c){
+      I=which(label==i)
+      M[i,]=colMeans(X[I,])
+    }
+    
+    #update weights
+    #minimize the new objective function
+    for(l in 1:c){
+      for(j in 1:d){
+        D[l,j]=0
+      }
+    }
+    for(i in 1:c){
+      I=which(label==i)
+      for(k in I){
+        D[i,]=D[i,]+vec.wt.euc.dist.sq(X[k,],M[i,],rep(1,d))
+      }
+    }
+    
+    for( l in 1:c){
+      weight[l,]=update_weight(D[l,],c,lambda)
+    }
+    sum=numeric(c)
+    for(l in 1:c){
+      sum[l]=0
+      for(j in 1:d){
+        sum[l]=sum[l]+D[l,j]
+        j=j+1
+      }
+    }
+    for(l in 1:c){
+      for(j in 1:d){
+        weight[l,j]=D[l,j]/sum[l]
+      }
+    }
+    if(t>tmax){
+      break
+    }
+    
+  }
+  return(list(label,M,weight))
+  
+}
